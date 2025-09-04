@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  image-viewer:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
+      - OCI_PAR_URL=${OCI_PAR_URL}
+      - OCI_CONFIG_FILE=${OCI_CONFIG_FILE:-~/.oci/config}
+      - OCI_PROFILE=${OCI_PROFILE:-DEFAULT}
+      - OCI_NAMESPACE=${OCI_NAMESPACE}
+      - OCI_BUCKET_NAME=${OCI_BUCKET_NAME}
+      - OCI_REGION=${OCI_REGION:-us-ashburn-1}
+    volumes:
+      - ./logs:/app/logs
+      - ~/.oci:/home/appuser/.oci:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  default:
+    driver: bridge

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pagination Test</title>
+</head>
+<body>
+    <h1>Pagination Test</h1>
+    
+    <div>
+        <h2>Test Navigation</h2>
+        <button onclick="testChangePage(1)">Page 1</button>
+        <button onclick="testChangePage(2)">Page 2</button>
+        <button onclick="testChangePage(3)">Page 3</button>
+    </div>
+    
+    <div id="debug-info">
+        <p>Current Page: <span id="debug-current">1</span></p>
+        <p>Total Pages: <span id="debug-total">1</span></p>
+        <p>Status: <span id="debug-status">Ready</span></p>
+    </div>
+    
+    <div id="gallery">
+        <p>Gallery content will appear here</p>
+    </div>
+    
+    <script>
+        // Global variables
+        let currentPage = 1;
+        let totalPages = 1;
+        
+        // Initialize pagination from server-rendered data
+        function initializePaginationFromServer() {
+            // Simulate the server data
+            currentPage = 1;
+            totalPages = 25; // Assuming 25 pages for testing
+            updateDebugInfo();
+        }
+        
+        function updateDebugInfo() {
+            document.getElementById('debug-current').textContent = currentPage;
+            document.getElementById('debug-total').textContent = totalPages;
+        }
+        
+        function testChangePage(page) {
+            console.log(`testChangePage called with page=${page}, totalPages=${totalPages}`);
+            
+            if (page < 1 || page > totalPages) {
+                console.log(`Invalid page: ${page}, valid range is 1-${totalPages}`);
+                document.getElementById('debug-status').textContent = `Invalid page: ${page}`;
+                return;
+            }
+            
+            document.getElementById('debug-status').textContent = `Loading page ${page}...`;
+            
+            // Fetch new page data
+            fetch(`/api/images?page=${page}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Received data:', data);
+                    currentPage = page;
+                    updateDebugInfo();
+                    document.getElementById('debug-status').textContent = `Loaded page ${page}`;
+                    
+                    // Update gallery
+                    const gallery = document.getElementById('gallery');
+                    gallery.innerHTML = data.images.map(image => `
+                        <div style="border: 1px solid #ccc; margin: 10px; padding: 10px;">
+                            <h3>${image.name}</h3>
+                            <p>URL: ${image.url}</p>
+                            ${image.thumbnail ? `<img src="${image.thumbnail}" style="max-width: 200px;">` : '<p>No thumbnail</p>'}
+                        </div>
+                    `).join('');
+                })
+                .catch(error => {
+                    console.error('Error loading page:', error);
+                    document.getElementById('debug-status').textContent = `Error: ${error.message}`;
+                });
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializePaginationFromServer();
+        });
+    </script>
+</body>
+</html>

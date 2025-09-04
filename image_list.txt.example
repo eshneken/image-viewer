@@ -1,0 +1,14 @@
+# Example image list file
+# This file can be used as a fallback when OCI SDK or PAR methods fail
+# Add your actual image names here, one per line
+
+# Sample images (replace with your actual image names)
+image_001.jpg
+image_002.jpg
+image_003.jpg
+photo_001.png
+photo_002.png
+vacation_001.jpeg
+vacation_002.jpeg
+family_photo.jpg
+work_document.png
