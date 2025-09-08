@@ -1,4 +1,5 @@
 from flask import Flask, render_template, jsonify, request, send_file
+from flask import session, redirect, url_for, flash
 import requests
 import json
 import os
@@ -16,6 +17,7 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-here')
+VIEWER_PASSWORD = os.getenv('VIEWER_PASSWORD', '')
 
 # Configuration
 IMAGES_PER_PAGE = 20
@@ -27,6 +29,44 @@ OCI_BUCKET_NAME = os.getenv('OCI_BUCKET_NAME', '')
 
 # Image file extensions to consider
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.tif'}
+
+def is_authenticated() -> bool:
+    return session.get('authenticated') is True
+
+def login_required(view_func):
+    from functools import wraps
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        if is_authenticated():
+            return view_func(*args, **kwargs)
+        # Decide JSON vs HTML based on Accept header or path
+        wants_json = request.path.startswith('/api') or 'application/json' in (request.headers.get('Accept') or '')
+        if wants_json:
+            return jsonify({'error': 'Unauthorized'}), 401
+        next_url = request.url
+        return redirect(url_for('login', next=next_url))
+    return wrapper
+
+# Auth routes
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        if not VIEWER_PASSWORD:
+            error = 'Server is not configured. Contact admin.'
+        elif password == VIEWER_PASSWORD:
+            session['authenticated'] = True
+            next_url = request.args.get('next')
+            return redirect(next_url or url_for('index'))
+        else:
+            error = 'Invalid password'
+    return render_template('login.html', error=error)
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
 
 class ImageViewer:
     def __init__(self, par_url=None, config_file=None, profile=None, namespace=None, bucket_name=None):
@@ -295,6 +335,7 @@ print(f"  Namespace: {OCI_NAMESPACE}")
 print(f"  Bucket: {OCI_BUCKET_NAME}")
 
 @app.route('/')
+@login_required
 def index():
     """Main page with image gallery"""
     page = request.args.get('page', 1, type=int)
@@ -302,6 +343,7 @@ def index():
     return render_template('index.html', **result)
 
 @app.route('/api/images')
+@login_required
 def api_images():
     """API endpoint for getting paginated images"""
     page = request.args.get('page', 1, type=int)
@@ -311,6 +353,7 @@ def api_images():
     return jsonify(result)
 
 @app.route('/api/image/<image_name>')
+@login_required
 def api_image(image_name):
     """API endpoint for getting a specific image"""
     try:
@@ -329,6 +372,7 @@ def api_image(image_name):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/image-info/<image_name>')
+@login_required
 def api_image_info(image_name):
     """API endpoint for getting image information"""
     try:
@@ -348,11 +392,13 @@ def api_image_info(image_name):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/test')
+@login_required
 def test_pagination():
     """Test page for debugging pagination"""
     return send_file('test_pagination.html')
 
 @app.route('/api/refresh-images')
+@login_required
 def api_refresh_images():
     """API endpoint to refresh the image list"""
     try:

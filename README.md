@@ -52,6 +52,23 @@ python app.py
 
 The application will be available at `http://localhost:8000`
 
+## Authentication (Optional but recommended)
+
+Set a single static password via environment variable to require login for all pages and APIs.
+
+1. Add to your `.env`:
+
+```
+VIEWER_PASSWORD=changeme
+SECRET_KEY=your-random-secret
+```
+
+2. Restart the app. You'll be redirected to `/login`.
+
+- Sessions are server-side (Flask session cookie). 
+- Logout at `/logout`.
+- API requests without a valid session receive `401 {"error":"Unauthorized"}`.
+
 ## Configuration Options
 
 ### Method 1: OCI SDK (Recommended)
