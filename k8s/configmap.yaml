@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: image-viewer-config
+  namespace: image-viewer
+data:
+  IMAGES_PER_PAGE: "20"
+  APP_TITLE: "OCI Image Viewer"
+  # These will be overridden by the secret
+  OCI_NAMESPACE: ""
+  OCI_BUCKET_NAME: ""
+  OCI_PAR_URL: ""
+  # These will use resource principal auth in OKE
+  OCI_CONFIG_FILE: ""
+  OCI_PROFILE: ""
+

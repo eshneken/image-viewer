@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: image-viewer
+  namespace: image-viewer
+  labels:
+    app: image-viewer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: image-viewer
+  template:
+    metadata:
+      labels:
+        app: image-viewer
+    spec:
+      serviceAccountName: image-viewer-sa
+      automountServiceAccountToken: true
+      imagePullSecrets:
+      - name: ocir-secret
+      containers:
+      - name: image-viewer
+        image: {{REGION_CODE}}.ocir.io/{{OS_NAMESPACE}}/image-viewer:latest
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - configMapRef:
+            name: image-viewer-config
+        - secretRef:
+            name: image-viewer-secrets
+        env:
+        - name: GUNICORN_CMD_ARGS
+          value: "--timeout 120 --workers=1 --worker-class=sync"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: OCI_RESOURCE_PRINCIPAL_REGION
+          value: "us-{{REGION}}-1"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+        # Gunicorn will be started with the correct binding in the Dockerfile
+        
+        # Startup probe - gives the app time to start up
+        # startupProbe:
+        #   httpGet:
+        #     path: /health
+        #     port: 8000
+        #   initialDelaySeconds: 5
+        #   periodSeconds: 5
+        #   failureThreshold: 6  # 30 seconds total
+        
+        # # Liveness probe - checks if container is running
+        # livenessProbe:
+        #   httpGet:
+        #     path: /health
+        #     port: 8000
+        #   initialDelaySeconds: 60  # Give plenty of time for startup
+        #   periodSeconds: 10
+        #   timeoutSeconds: 2
+        #   failureThreshold: 3
+        
+        # # Readiness probe - checks if container is ready to serve traffic
+        # readinessProbe:
+        #   httpGet:
+        #     path: /health
+        #     port: 8000
+        #   initialDelaySeconds: 10
+        #   periodSeconds: 10
+        #   timeoutSeconds: 2
+        #   failureThreshold: 3
+

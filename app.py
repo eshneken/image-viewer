@@ -10,16 +10,28 @@ from PIL import Image
 import base64
 import oci
 from oci.object_storage import ObjectStorageClient
-from oci.auth.signers import get_resource_principals_signer
+from oci.auth.signers import get_oke_workload_identity_resource_principal_signer
 import re
+import datetime
+import signal
+
 
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-here')
+app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-here')
+# Session configuration
+app.config.update(
+    PERMANENT_SESSION_LIFETIME=datetime.timedelta(minutes=30),  # Session expires after 30 minutes
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SECURE=False,  # Set to True in production with HTTPS
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_REFRESH_EACH_REQUEST=True
+)
 VIEWER_PASSWORD = os.getenv('VIEWER_PASSWORD', '')
 
 # Configuration
+APP_TITLE = os.getenv('APP_TITLE', 'OCI Image Viewer')
 IMAGES_PER_PAGE = 20
 OCI_PAR_URL = os.getenv('OCI_PAR_URL', '')
 OCI_CONFIG_FILE = os.getenv('OCI_CONFIG_FILE', '~/.oci/config')
@@ -50,18 +62,30 @@ def login_required(view_func):
 # Auth routes
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # Clear any existing session data
+    session.clear()
+    
     error = None
     if request.method == 'POST':
         password = request.form.get('password', '')
         if not VIEWER_PASSWORD:
             error = 'Server is not configured. Contact admin.'
         elif password == VIEWER_PASSWORD:
+            # Regenerate session to prevent session fixation
+            session.permanent = True
             session['authenticated'] = True
-            next_url = request.args.get('next')
-            return redirect(next_url or url_for('index'))
+            session['_fresh'] = True  # Mark session as fresh
+            session['_id'] = os.urandom(24).hex()  # Add some entropy
+            
+            # Log session creation
+            print(f"New session created at {datetime.datetime.utcnow().isoformat()}")
+            print(f"Session will expire at: {(datetime.datetime.utcnow() + app.permanent_session_lifetime).isoformat()}")
+            
+            next_url = request.args.get('next', url_for('index'))
+            return redirect(next_url)
         else:
             error = 'Invalid password'
-    return render_template('login.html', error=error)
+    return render_template('login.html', error=error, app_title=APP_TITLE)
 
 @app.route('/logout')
 def logout():
@@ -103,24 +127,44 @@ class ImageViewer:
             print(f"Error extracting bucket info from PAR: {e}")
     
     def _get_oci_client(self):
-        """Get OCI Object Storage client"""
-        if self._oci_client is None:
-            try:
-                # Try to use config file first
-                config = oci.config.from_file(self.config_file, self.profile)
-                self._oci_client = ObjectStorageClient(config)
-                print("Using OCI config file authentication")
-            except Exception as e:
-                print(f"Error loading OCI config: {e}")
-                try:
-                    # Try resource principal authentication (for running in OCI)
-                    signer = get_resource_principals_signer()
-                    self._oci_client = ObjectStorageClient(config={}, signer=signer)
-                    print("Using resource principal authentication")
-                except Exception as e2:
-                    print(f"Error with resource principal auth: {e2}")
-                    # Fallback to no authentication (will only work with PAR URLs)
-                    self._oci_client = None
+        """Get OCI Object Storage client with safe fallbacks (config → workload identity → None)."""
+        if self._oci_client is not None:
+            return self._oci_client
+
+        # --- Try config file first ---
+        try:
+            config = oci.config.from_file(self.config_file, self.profile)
+            self._oci_client = ObjectStorageClient(config)
+            print("Using OCI config file authentication")
+            return self._oci_client
+        except Exception as e:
+            print(f"Error loading OCI config file: {e}")
+
+        # --- Try OKE workload identity ---
+        try:
+            print("Trying OKE workload identity authentication...")
+
+            # Add a timeout so this cannot hang forever
+            def handler(signum, frame):
+                raise TimeoutError("Timed out getting workload identity signer")
+
+            signal.signal(signal.SIGALRM, handler)
+            signal.alarm(5)  # seconds
+
+            signer = get_oke_workload_identity_resource_principal_signer()
+            self._oci_client = ObjectStorageClient(config={}, signer=signer)
+
+            signal.alarm(0)  # cancel timeout
+            print("Using OKE workload identity authentication")
+            return self._oci_client
+        except Exception as e2:
+            print(f"Error with OKE workload identity auth: {e2}")
+        finally:
+            signal.alarm(0)  # always clear alarm
+
+        # --- Fallback ---
+        print("No valid OCI authentication available, continuing without client")
+        self._oci_client = None
         return self._oci_client
     
     def get_image_list(self, force_refresh=False):
@@ -328,11 +372,27 @@ image_viewer = ImageViewer(
 )
 
 print(f"Image viewer initialized with:")
+print(f"  APP TITLE: {APP_TITLE}")
 print(f"  PAR URL: {OCI_PAR_URL}")
 print(f"  Config file: {OCI_CONFIG_FILE}")
 print(f"  Profile: {OCI_PROFILE}")
 print(f"  Namespace: {OCI_NAMESPACE}")
 print(f"  Bucket: {OCI_BUCKET_NAME}")
+
+@app.before_request
+def before_request():
+    """Check session expiration before each request"""
+    if 'authenticated' in session:
+        session.permanent = True  # Refresh the session on each request
+        app.permanent_session_lifetime = datetime.timedelta(minutes=30)
+        
+        # Debug logging
+        if 'last_activity' in session:
+            last_activity = datetime.datetime.fromisoformat(session['last_activity'])
+            time_since_last_activity = datetime.datetime.utcnow() - last_activity
+            print(f"Time since last activity: {time_since_last_activity}")
+        
+        session['last_activity'] = datetime.datetime.utcnow().isoformat()
 
 @app.route('/')
 @login_required
@@ -340,7 +400,7 @@ def index():
     """Main page with image gallery"""
     page = request.args.get('page', 1, type=int)
     result = image_viewer.get_paginated_images(page=page)
-    return render_template('index.html', **result)
+    return render_template('index.html', app_title=APP_TITLE, **result)
 
 @app.route('/api/images')
 @login_required
@@ -406,6 +466,40 @@ def api_refresh_images():
         return jsonify({'message': 'Image list refreshed successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Kubernetes liveness and readiness probes"""
+    health_checks = {}
+    status_code = 200
+    
+    # Basic app status
+    health_checks['app'] = 'running'
+    health_checks['timestamp'] = datetime.datetime.utcnow().isoformat()
+    
+    # Check OCI client status
+    try:
+        if hasattr(image_viewer, '_oci_client'):
+            health_checks['oci_client'] = 'initialized'
+            if image_viewer._oci_client:
+                health_checks['oci_auth'] = 'authenticated'
+            else:
+                health_checks['oci_auth'] = 'not_authenticated'
+        else:
+            health_checks['oci_client'] = 'not_initialized'
+    except Exception as e:
+        health_checks['oci_client_error'] = str(e)
+        status_code = 503
+    
+    # Add more checks as needed
+    
+    # If any critical check failed, set status to unhealthy
+    if status_code != 200:
+        health_checks['status'] = 'unhealthy'
+    else:
+        health_checks['status'] = 'healthy'
+    
+    return jsonify(health_checks), status_code
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8000)
