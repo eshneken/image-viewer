@@ -284,25 +284,40 @@ function loadModalImage(imageUrl, imageName) {
     const modalImage = document.getElementById('modalImage');
     const imageLoading = document.getElementById('imageLoading');
     
+    if (!modalImage || !imageLoading) return;
+    
+    // Show loading indicator and hide previous image
+    imageLoading.style.display = 'flex';
+    modalImage.style.display = 'none';
+    
+    // Set image data attributes
+    modalImage.setAttribute('data-image-name', imageName);
+    
     // Create a new image object to handle loading
     const img = new Image();
     
     img.onload = function() {
+        // Set the image source
         modalImage.src = imageUrl;
         modalImage.alt = imageName;
-        modalImage.style.display = 'block';
-        imageLoading.style.display = 'none';
         
-        // Ensure image fits within viewport
-        ensureImageFits();
+        // Hide loading indicator and show the image
+        imageLoading.style.display = 'none';
+        modalImage.style.display = 'block';
+        
+        // Ensure image fits within viewport after a small delay
+        setTimeout(ensureImageFits, 50);
     };
     
     img.onerror = function() {
         // Handle error - show placeholder or error message
         imageLoading.innerHTML = `
-            <div>
+            <div style="text-align: center;">
                 <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #e53e3e; margin-bottom: 10px;"></i>
                 <p>Failed to load image</p>
+                <button onclick="location.reload()" class="page-btn" style="margin-top: 10px;">
+                    <i class="fas fa-sync-alt"></i> Try Again
+                </button>
             </div>
         `;
     };
@@ -318,31 +333,74 @@ function ensureImageFits() {
     
     if (!modalImage || !imageDisplay) return;
     
-    // Reset any previous transformations
+    // Reset any previous transformations and show the image
     modalImage.style.transform = 'scale(1)';
     
-    // Get viewport dimensions
+    // Get viewport and container dimensions
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
-    
-    // Get modal content dimensions
     const modalContent = document.querySelector('.modal-content');
     const modalRect = modalContent.getBoundingClientRect();
     
-    // Calculate available space for image
-    const availableWidth = modalRect.width - 40; // Account for padding
-    const availableHeight = modalRect.height - 200; // Account for header, navigation, and details
+    // Calculate available space with more generous vertical padding
+    const padding = 5; // Minimal side padding
+    const headerHeight = 20; // Slightly more header space
+    const controlsHeight = 40; // More space for controls
     
-    // Get image dimensions
-    const imgRect = modalImage.getBoundingClientRect();
+    // Calculate available space with extra vertical buffer
+    const availableWidth = modalRect.width - (padding * 2);
+    const availableHeight = viewportHeight - (headerHeight + controlsHeight + padding * 2) - 50; // Reduced buffer to 20px
+    
+    // Get natural image dimensions
+    const imgWidth = modalImage.naturalWidth || modalImage.width;
+    const imgHeight = modalImage.naturalHeight || modalImage.height;
+    
+    if (!imgWidth || !imgHeight) {
+        // If we can't get dimensions, try again after a short delay
+        setTimeout(ensureImageFits, 100);
+        return;
+    }
     
     // Calculate scale to fit image within available space
-    const scaleX = availableWidth / imgRect.width;
-    const scaleY = availableHeight / imgRect.height;
-    const scale = Math.min(scaleX, scaleY, 1); // Don't scale up, only down
+    const scaleX = availableWidth / imgWidth;
+    const scaleY = availableHeight / imgHeight;
     
-    if (scale < 1) {
-        modalImage.style.transform = `scale(${scale})`;
+    // Even more aggressive scaling for portrait images
+    const isPortrait = imgHeight > imgWidth;
+    const scaleFactor = isPortrait ? 0.80 : 0.90; // More reduction for portrait
+    const scale = Math.min(scaleX, scaleY, 0.95) * scaleFactor; // Cap at 95% of viewport
+    
+    // Apply the scale
+    modalImage.style.transform = `scale(${scale})`;
+    
+    // Position the image with even more space at the top for portrait mode
+    const scaledWidth = imgWidth * scale;
+    const scaledHeight = imgHeight * scale;
+    const offsetX = Math.max(0, (availableWidth - scaledWidth) / 2);
+    
+    // Fixed top margin for portrait, centered for landscape
+    let offsetY;
+    if (isPortrait) {
+        // Fixed 40px top margin for portrait
+        offsetY = 40;
+    } else {
+        // Center landscape images with 30% from top
+        offsetY = (availableHeight - scaledHeight) * 0.3;
+    }
+    
+    // Apply styles to maximize visible area
+    modalImage.style.maxWidth = 'none';
+    modalImage.style.maxHeight = 'none';
+    modalImage.style.margin = `${offsetY}px ${offsetX}px`;
+    
+    // Ensure the image display container is properly sized
+    const container = document.querySelector('.image-display');
+    if (container) {
+        container.style.width = '100%';
+        container.style.height = '100%';
+        container.style.display = 'flex';
+        container.style.justifyContent = 'center';
+        container.style.alignItems = 'center';
     }
 }
 
@@ -363,24 +421,32 @@ function closeModal() {
 
 // Navigate to previous/next image
 function navigateImage(direction) {
-    const newIndex = currentImageIndex + direction;
+    const modalImage = document.getElementById('modalImage');
+    if (!modalImage) return;
     
+    const currentIndex = currentPageImages.findIndex(img => img.name === modalImage.dataset.imageName);
+    if (currentIndex === -1) return;
+    
+    const newIndex = direction === 1 ? currentIndex + 1 : currentIndex - 1;
+    
+    // Check if we're at the first or last image
     if (newIndex >= 0 && newIndex < currentPageImages.length) {
+        const image = currentPageImages[newIndex];
+        // Update the current image index for reference
         currentImageIndex = newIndex;
-        const image = currentPageImages[currentImageIndex];
         
         // Update modal content
         const imageNameSpan = document.getElementById('imageName');
         const imageCounterSpan = document.getElementById('imageCounter');
         
-        imageNameSpan.textContent = image.name;
-        imageCounterSpan.textContent = `${currentImageIndex + 1} of ${currentPageImages.length}`;
+        if (imageNameSpan) imageNameSpan.textContent = image.name;
+        if (imageCounterSpan) imageCounterSpan.textContent = `${currentImageIndex + 1} of ${currentPageImages.length}`;
         
-        // Load new image
+        // Load the new image
         loadModalImage(image.url, image.name);
         
-        // Update navigation buttons
-        updateNavigationButtons();
+        // Update navigation buttons after a small delay to ensure UI is updated
+        setTimeout(updateNavigationButtons, 50);
     }
 }
 
