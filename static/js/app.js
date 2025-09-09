@@ -367,8 +367,8 @@ function ensureImageFits() {
     
     // Even more aggressive scaling for portrait images
     const isPortrait = imgHeight > imgWidth;
-    const scaleFactor = isPortrait ? 0.80 : 0.90; // More reduction for portrait
-    const scale = Math.min(scaleX, scaleY, 0.95) * scaleFactor; // Cap at 95% of viewport
+    const scaleFactor = isPortrait ? 0.80 : 0.80; // More reduction for portrait
+    const scale = Math.min(scaleX, scaleY, 0.90) * scaleFactor; // Cap at 95% of viewport
     
     // Apply the scale
     modalImage.style.transform = `scale(${scale})`;
@@ -384,8 +384,8 @@ function ensureImageFits() {
         // Fixed 40px top margin for portrait
         offsetY = 40;
     } else {
-        // Center landscape images with 30% from top
-        offsetY = (availableHeight - scaledHeight) * 0.3;
+        // Center landscape images with 35% from top
+        offsetY = (availableHeight - scaledHeight) * 0.35;
     }
     
     // Apply styles to maximize visible area
