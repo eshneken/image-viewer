@@ -81,8 +81,8 @@ function addViewButtonListeners() {
     });
 }
 
-// Change page function
-function changePage(page) {
+// Change page function - must be in global scope for onclick handlers
+window.changePage = function(page) {
     console.log(`changePage called with page=${page}, totalPages=${totalPages}`);
     
     if (page < 1 || page > totalPages) {
@@ -90,7 +90,7 @@ function changePage(page) {
         return;
     }
     
-    // Show loading
+    // Show loading modal
     showLoading();
     
     // Update URL without page reload
@@ -108,9 +108,12 @@ function changePage(page) {
         })
         .then(data => {
             console.log('Received data:', data);
-            updateGallery(data);
-            currentPage = page;
-            hideLoading();
+            // Small delay to ensure smooth transition
+            setTimeout(() => {
+                updateGallery(data);
+                currentPage = page;
+                hideLoading();
+            }, 100);
         })
         .catch(error => {
             console.error('Error loading page:', error);
@@ -118,7 +121,10 @@ function changePage(page) {
             // Fallback to page reload
             window.location.href = `/?page=${page}`;
         });
-}
+    
+    // Prevent default action
+    return false;
+};
 
 // Update gallery with new data
 function updateGallery(data) {
@@ -220,29 +226,32 @@ function updateStats(pagination) {
     }
 }
 
-// Show loading indicator
+// Show loading modal
 function showLoading() {
+    console.log('showLoading called');
     const loading = document.getElementById('loading');
-    const gallery = document.getElementById('gallery');
-    
     if (loading) {
-        loading.style.display = 'flex';
-    }
-    if (gallery) {
-        gallery.style.opacity = '0.5';
+        console.log('Found loading element, adding active class');
+        loading.style.display = 'flex'; // Ensure it's visible
+        loading.classList.add('active');
+        document.body.style.overflow = 'hidden'; // Prevent scrolling while loading
+    } else {
+        console.error('Loading element not found!');
     }
 }
 
-// Hide loading indicator
+// Hide loading modal
 function hideLoading() {
+    console.log('hideLoading called');
     const loading = document.getElementById('loading');
-    const gallery = document.getElementById('gallery');
-    
     if (loading) {
-        loading.style.display = 'none';
-    }
-    if (gallery) {
-        gallery.style.opacity = '1';
+        console.log('Found loading element, removing active class');
+        loading.classList.remove('active');
+        // Add a small delay before hiding to allow for fade-out animation
+        setTimeout(() => {
+            loading.style.display = 'none';
+        }, 300);
+        document.body.style.overflow = ''; // Re-enable scrolling
     }
 }
 
