@@ -13,9 +13,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Set working directory
 WORKDIR /app
 
-# Force IPV4
-RUN echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4
-
 # Install system dependencies
 RUN apt-get update -o Acquire::Retries=5 && \
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
