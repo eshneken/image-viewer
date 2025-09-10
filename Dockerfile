@@ -1,4 +1,4 @@
-FROM python:3.11
+FROM python:3.11-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -13,8 +13,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Set working directory
 WORKDIR /app
 
+# Force IPV4
+RUN echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4
+
 # Install system dependencies
-RUN apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout="30" -o Acquire::https::Timeout="30" && \
+RUN apt-get update -o Acquire::Retries=5 && \
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     apt-transport-https \
     ca-certificates \
