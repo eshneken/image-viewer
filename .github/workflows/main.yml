@@ -52,6 +52,9 @@ jobs:
         OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
         OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
       steps:
+        - name: Print OKE OCID
+          run: |
+            echo "Cluster OCID: ${{ secrets.OKE_CLUSTER_OCID }}"
         - name: Configure Kubectl
           uses: oracle-actions/configure-kubectl-oke@v1.5.0
           with:
@@ -59,4 +62,5 @@ jobs:
             enablePrivateEndpoint: false
   
         - name: Run Kubectl
-          run: kubectl get nodes -A
+          run: |
+            kubectl get nodes -A
