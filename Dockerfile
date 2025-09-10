@@ -14,12 +14,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN DEBIAN_FRONTEND=noninteractive apt-get update -o Acquire::Retries=3 && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
+# Install Poetry 
 RUN pip install --no-cache-dir "poetry==$POETRY_VERSION"
 
 # Copy only requirements first for better caching

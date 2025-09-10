@@ -23,8 +23,8 @@ jobs:
         uses: oracle-actions/get-ocir-repository@v1.3.0
         id: get-ocir-repository
         with:
-          name: sandbox/image-viewer
-          compartment: ${{ secrets.OCI_COMPARTMENT_OCID }}
+          name: ${{env.K8S_DOCKER_IMAGE_PATH}}
+          compartment: ${{ env.OCI_COMPARTMENT_OCID }}
 
       - name: Log into OCIR
         uses: oracle-actions/login-ocir@v1.3.0
@@ -39,7 +39,7 @@ jobs:
           context: "{{defaultContext}}"
           tags: "${{ steps.get-ocir-repository.outputs.repo_path }}:latest"
           platforms:
-            linux/arm64
+            ${{env.DOCKER_PLATFORM}}
 
   deploy:
       needs: build
@@ -52,13 +52,10 @@ jobs:
         OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
         OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
       steps:
-        - name: Print OKE OCID
-          run: |
-            echo "Cluster OCID: ${{ secrets.OKE_CLUSTER_OCID }}"
         - name: Configure Kubectl
           uses: oracle-actions/configure-kubectl-oke@v1.5.0
           with:
-            cluster: ${{ secrets.OKE_CLUSTER_OCID }}
+            cluster: ${{ env.K8S_CLUSTER_OCID }}
             enablePrivateEndpoint: false
   
         - name: Run Kubectl
