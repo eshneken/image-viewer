@@ -38,7 +38,7 @@ jobs:
           push: true
           context: "{{defaultContext}}"
           tags: "${{ steps.get-ocir-repository.outputs.repo_path }}:latest"
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/arm64
 
   deploy:
       needs: build
