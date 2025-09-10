@@ -14,9 +14,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Install system dependencies
-RUN DEBIAN_FRONTEND=noninteractive \
-    apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout="30" -o Acquire::https::Timeout="30" \
-    && apt-get install -y --no-install-recommends ca-certificates \
+RUN apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout="30" -o Acquire::https::Timeout="30" && \
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    apt-transport-https \
+    ca-certificates \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
