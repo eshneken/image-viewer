@@ -57,12 +57,22 @@ jobs:
         OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
         OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
       steps:
+        - name: Checkout repo
+          uses: actions/checkout@v4
+
         - name: Configure Kubectl
           uses: oracle-actions/configure-kubectl-oke@v1.5.0
           with:
             cluster: ${{ vars.K8S_CLUSTER_OCID }}
             enablePrivateEndpoint: false
   
-        - name: Run Kubectl
+        - name: Replace variables in deployment.yaml
           run: |
-            kubectl get nodes -A
+            sed -i "s|K8S_REGION_CODE|${{ vars.K8S_REGION_CODE }}|g" k8s/deployment.yaml
+            sed -i "s|K8S_OS_NAMESPACE|${{ vars.K8S_OS_NAMESPACE }}|g" k8s/deployment.yaml
+            sed -i "s|K8S_DOCKER_IMAGE_PATH|${{ vars.K8S_DOCKER_IMAGE_PATH }}|g" k8s/deployment.yaml
+            sed -i "s|OCI_CLI_REGION|${{ secrets.OCI_CLI_REGION }}|g" k8s/deployment.yaml
+
+        - name: Update deployment
+          run: |
+            kubectl apply -f k8s/deployment.yaml

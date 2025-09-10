@@ -14,10 +14,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update -o Acquire::Retries=5 && \
-DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    apt-transport-https \
-    ca-certificates \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
