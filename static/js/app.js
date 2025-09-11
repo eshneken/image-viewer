@@ -491,51 +491,80 @@ function handleKeyboardNavigation(event) {
     }
 }
 
-// Download current image
-function downloadCurrentImage() {
+// Download current image - Optimized for iOS Safari
+async function downloadCurrentImage() {
     const modalImage = document.getElementById('modalImage');
     if (!modalImage || !modalImage.src) return;
     
-    // Create a temporary link element
-    const link = document.createElement('a');
-    link.href = modalImage.src;
+    // For iOS Safari, we'll use a different approach to ensure 'Save to Photos' appears
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     
-    // Get the filename from the image source or use a default name
-    const url = new URL(modalImage.src);
-    const pathParts = url.pathname.split('/');
-    let filename = pathParts[pathParts.length - 1];
-    
-    // If we can't get a good filename from the URL, use the image name from the UI
-    if (!filename || filename === '') {
-        const imageNameElement = document.getElementById('imageName');
-        filename = imageNameElement ? imageNameElement.textContent + '.jpg' : 'image.jpg';
-    }
-    
-    // Set download attributes
-    link.download = filename;
-    link.target = '_blank';
-    
-    // iOS devices require the link to be in the DOM to work
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // For iOS, we need to handle the download differently
-    if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', modalImage.src, true);
-        xhr.responseType = 'blob';
-        xhr.onload = function() {
-            const url = window.URL.createObjectURL(xhr.response);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        };
-        xhr.send();
+    if (isIOS) {
+        try {
+            // Create an anchor element with download attribute
+            const link = document.createElement('a');
+            link.href = modalImage.src;
+            link.setAttribute('download', ''); // This will trigger download on some browsers
+            
+            // For iOS, we need to open the image in a new tab
+            const newWindow = window.open('', '_blank');
+            if (newWindow) {
+                // Create a simple HTML page that displays the image full screen
+                newWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                        <title>Save Image</title>
+                        <style>
+                            body { margin: 0; padding: 0; background: #000; }
+                            img { 
+                                position: fixed;
+                                top: 0;
+                                left: 0;
+                                width: 100%;
+                                height: 100%;
+                                object-fit: contain;
+                            }
+                            .instructions {
+                                position: fixed;
+                                bottom: 20px;
+                                left: 0;
+                                right: 0;
+                                background: rgba(0,0,0,0.8);
+                                color: white;
+                                text-align: center;
+                                padding: 15px;
+                                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <img src="${modalImage.src}" alt="Tap and hold to save">
+                        <div class="instructions">
+                            Tap and hold the image, then tap "Add to Photos"
+                        </div>
+                    </body>
+                    </html>
+                `);
+                newWindow.document.close();
+            } else {
+                // If popup was blocked, show instructions
+                alert('Please allow popups to save images. Then tap and hold the image and select "Add to Photos".');
+            }
+        } catch (err) {
+            console.error('Error:', err);
+            // Fallback to simple image open
+            window.open(modalImage.src, '_blank');
+        }
+    } else {
+        // For non-iOS browsers, use standard download
+        const link = document.createElement('a');
+        link.href = modalImage.src;
+        link.download = 'image.jpg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 }
 
