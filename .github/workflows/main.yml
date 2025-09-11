@@ -45,6 +45,8 @@ jobs:
           context: "{{defaultContext}}"
           tags: "${{ steps.get-ocir-repository.outputs.repo_path }}:latest"
           platforms: ${{vars.DOCKER_PLATFORM}}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
       needs: build
