@@ -6,7 +6,12 @@ metadata:
   labels:
     app: image-viewer
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: image-viewer
@@ -43,9 +48,5 @@ spec:
           limits:
             cpu: "1000m"
             memory: "1Gi"
-      strategy:
-        type: RollingUpdate
-        rollingUpdate:
-          maxUnavailable: 0
-          maxSurge: 1
+      
 
