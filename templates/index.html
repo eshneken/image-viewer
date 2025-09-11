@@ -97,8 +97,13 @@
                     <img id="modalImage" src="" alt="" class="modal-image">
                 </div>
                 <div class="image-details">
-                    <h4 id="imageName"></h4>
-                    <p id="imageCounter"></p>
+                    <div class="image-info">
+                        <h4 id="imageName"></h4>
+                        <p id="imageCounter"></p>
+                    </div>
+                    <button id="downloadBtn" class="download-btn" onclick="downloadCurrentImage()">
+                        <i class="fas fa-download"></i> Download
+                    </button>
                 </div>
             </div>
             <button id="prevBtn" class="nav-btn prev" onclick="navigateImage(-1)">

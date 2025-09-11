@@ -376,7 +376,7 @@ function ensureImageFits() {
     
     // Even more aggressive scaling for portrait images
     const isPortrait = imgHeight > imgWidth;
-    const scaleFactor = isPortrait ? 0.80 : 0.80; // More reduction for portrait
+    const scaleFactor = isPortrait ? 0.76 : 0.76; // More reduction for portrait
     const scale = Math.min(scaleX, scaleY, 0.90) * scaleFactor; // Cap at 95% of viewport
     
     // Apply the scale
@@ -488,6 +488,54 @@ function handleKeyboardNavigation(event) {
                 navigateImage(1);
                 break;
         }
+    }
+}
+
+// Download current image
+function downloadCurrentImage() {
+    const modalImage = document.getElementById('modalImage');
+    if (!modalImage || !modalImage.src) return;
+    
+    // Create a temporary link element
+    const link = document.createElement('a');
+    link.href = modalImage.src;
+    
+    // Get the filename from the image source or use a default name
+    const url = new URL(modalImage.src);
+    const pathParts = url.pathname.split('/');
+    let filename = pathParts[pathParts.length - 1];
+    
+    // If we can't get a good filename from the URL, use the image name from the UI
+    if (!filename || filename === '') {
+        const imageNameElement = document.getElementById('imageName');
+        filename = imageNameElement ? imageNameElement.textContent + '.jpg' : 'image.jpg';
+    }
+    
+    // Set download attributes
+    link.download = filename;
+    link.target = '_blank';
+    
+    // iOS devices require the link to be in the DOM to work
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // For iOS, we need to handle the download differently
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', modalImage.src, true);
+        xhr.responseType = 'blob';
+        xhr.onload = function() {
+            const url = window.URL.createObjectURL(xhr.response);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        };
+        xhr.send();
     }
 }
 
