@@ -73,6 +73,10 @@ jobs:
             sed -i "s|K8S_DOCKER_IMAGE_PATH|${{ vars.K8S_DOCKER_IMAGE_PATH }}|g" k8s/deployment.yaml
             sed -i "s|OCI_CLI_REGION|${{ secrets.OCI_CLI_REGION }}|g" k8s/deployment.yaml
 
+        - name: Show deployment.yaml
+          run: |
+            cat k8s/deployment.yaml
+            
         - name: Update deployment
           run: |
             kubectl apply -f k8s/deployment.yaml
