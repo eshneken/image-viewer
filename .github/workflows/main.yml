@@ -82,3 +82,9 @@ jobs:
         - name: Update deployment
           run: |
             kubectl apply -f k8s/deployment.yaml
+
+        - name: Trigger deployment
+          run: |
+            kubectl rollout restart deployment image-viewer -n image-viewer
+
+          
